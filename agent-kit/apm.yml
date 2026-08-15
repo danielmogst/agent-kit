@@ -1,0 +1,18 @@
+name: agent-kit
+version: 1.0.0
+description: Portable AI-agent toolkit - skills, Gemini vision setup, and OpenCode integration
+author: Daniel
+license: MIT
+keywords: [opencode, skills, vision, gemini, agents]
+
+# Restrict deployment to OpenCode: the vision tool/plugin payload is
+# OpenCode-specific and the agents use OpenCode frontmatter conventions.
+targets:
+  - opencode
+
+# Ship the OpenCode payload + bootstrap with apm pack bundles too.
+includes:
+  - .apm
+  - payload
+  - scripts
+  - docs
