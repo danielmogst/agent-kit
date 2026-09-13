@@ -8,6 +8,7 @@ One folder. Drop it in, point APM at it, done.
 
 | Thing | Source in this package | Where it lands after install |
 |---|---|---|
+| `orchestrator` skill (decompose, delegate to subagents, verify) | `.apm/skills/orchestrator/SKILL.md` | `.agents/skills/orchestrator/` |
 | `improve-prompt` skill | `.apm/skills/improve-prompt/SKILL.md` | `.agents/skills/improve-prompt/` |
 | `update-graphify` skill | `.apm/skills/update-graphify/SKILL.md` | `.agents/skills/update-graphify/` |
 | `vision` skill (when/how to use vision) | `.apm/skills/vision/SKILL.md` | `.agents/skills/vision/` |
