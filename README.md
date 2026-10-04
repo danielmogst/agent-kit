@@ -50,13 +50,14 @@ APM handles the skills/agent/instructions primitives natively. The OpenCode-spec
 
 ## Install — 3 ways
 
-### A. From a git host (recommended once this folder is its own repo)
+### A. From a git host (recommended)
 
 ```powershell
-# in the target repo
-apm install your-org/agent-kit --target opencode
-# or add to apm.yml and pin a tag:
-apm install your-org/agent-kit#v1.1.0 --target opencode
+# in the target repo, pinned to a release
+apm install your_github_user/agent-kit #v1.1.0 --target opencode
+
+# or track the latest main
+apm install your_github_user/agent-kit --target opencode
 ```
 
 Then deploy the OpenCode payload and compile root context:
@@ -107,8 +108,7 @@ First use on a machine: run one `gemini-vision` call — it publishes the workin
 
 ## Notes
 
-- `targets: [opencode]` in `apm.yml` restricts this package to OpenCode deployment. Skills still land in the shared `.agents/skills/` directory.
-- `apm_modules/` is build output — gitignore it (APM adds this automatically).
+- OpenCode-only by design: `targets: [opencode]` in `apm.yml` restricts this package to OpenCode deployment, and APM skips it for other harnesses (e.g. `--target copilot` installs nothing). The skills use the cross-tool `SKILL.md` format and land in `.agents/skills/`, but the 25 `ap-*` agents, the `gemini-vision` tool, and the graphify payload are OpenCode-specific.
 - Update flow: `apm update` refreshes primitives; re-run the bootstrap after updates to sync the payload.
 - `apm pack` bundles include `.apm/`, `payload/`, `scripts/`, and `docs/` (see `includes:` in `apm.yml`).
 - Keep `scripts/bootstrap.ps1` ASCII-only: PowerShell 5.1 misparses BOM-less UTF-8 scripts.
