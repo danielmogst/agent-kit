@@ -86,6 +86,9 @@ You are the orchestrator — the project manager, not the worker. Your job is to
               capture/measure → fix your top real findings.
 <Caps>       Max N heavy calls (browser/build/etc.); build ≤2; no watch/dev/server
               commands; single bounded commands; fix-once-then-BLOCKED; no polling.
+              If a server is truly required, name the wrapper verbatim
+              (e.g. `node scripts/with-dev-server.mjs -- <cmd>`); never
+              Start-Process + poll, never Wait-Job/Wait-Process, never tail logs.
 <Return>     ≤25 lines: files changed, what changed, measured before→after,
               verification output, anything unresolved. Full details go to <file>.
 ```
@@ -130,6 +133,35 @@ Default caps (adjust per task, always include in the brief):
 Recovery for a stuck agent (this happens): abort it, inspect leftover state (`git status`, process list), confirm nothing is half-written, then relaunch with a smaller scope and tighter caps. Never relaunch with the same brief that caused the loop.
 
 </execution_caps>
+
+<process_safety>
+
+**The rule every brief must repeat: a subagent may NEVER run a command that waits on a long-lived process from inside the same tool call.** A server/watch process inherits the tool's stdout/stderr pipe; the tool call only completes when every handle to that pipe closes, and a server never closes it — so the call hangs until the harness kills it (30+ minutes observed). A readiness check passing does not save the call: the shell prints "ready" and then the call still never returns.
+
+### Forbidden — these hang, in any shell
+
+1. Foreground long-lived processes: `npm run dev`, `next dev`, `next start`, `vite`, `webpack --watch`, `tsc -w`, `jest --watch`, `nodemon`, `docker logs -f`, `tail -f`, `Get-Content -Wait`, `journalctl -f`.
+2. `Start-Process` / `Start-Job` / Node `spawn` **followed by any wait in the same call**: `Wait-Job`, `Wait-Process`, `Wait-Event`, `Receive-Job -Wait`, `$proc.WaitForExit()`, `child.on('exit')` before exiting the script.
+3. `Start-Process -RedirectStandardOutput/-RedirectStandardError -PassThru` for a server: redirection forces pipe inheritance — the classic infinite hang even though the parent script printed its last line.
+4. Sleep/poll loops inside one call, bounded or not: `for`/`while` + `Start-Sleep` + `curl`/`Invoke-WebRequest`, `Test-NetConnection` retries, "wait for server", health-check loops, `timeout /t` chains, `until nc -z`.
+5. Any command whose success is "the log stops changing / a line appears later": log tailing, watch modes, progress polling, `Get-Content log` after a sleep.
+6. Starting a server with `-PassThru` and returning the PID for a *later* call while the current call still holds its handles (the current call is still the one that hangs).
+
+### Safe alternatives — pick one per brief
+
+1. **Preferred: a self-contained Node wrapper that owns the whole lifecycle.** One tool call runs `node scripts/with-dev-server.mjs -- <test command>`. The wrapper `spawn`s the server with `{ detached: true, stdio: "ignore" }`, `unref()`s it, polls readiness with a **bounded** loop and `fetch` inside that same Node process (≤90 attempts, 1 s apart), runs the test, and in a `finally` kills the process tree (`taskkill /PID n /T /F` on Windows). The tool sees exactly one short-lived Node process; the detached server holds none of the tool's pipes. Never hand-write the spawn/poll/kill logic ad hoc — reuse the wrapper.
+2. **Fully detached start, separate probe.** If a server must outlive the call: start it with `spawn(..., { detached: true, stdio: "ignore" }).unref()` (or `Start-Process cmd -ArgumentList '/c','npm run dev > log 2>&1' -WindowStyle Hidden` **without** redirect parameters) so the starting call returns immediately; then probe with a single bounded call (`curl --max-time 5`) and later kill by PID. The probe call must not loop.
+3. **Use an already-running server** when the environment provides one: one bounded `curl`/`fetch` to confirm it answers, then run the test. No start, no wait.
+4. **Skip the server when none is required.** Pure-function fixtures, `tsc --noEmit`, eslint, `next build`, and static diff/review checks need no server; choose them first.
+5. **Ask the wrapper to bake in the cleanup**: kill by listening port (`Get-NetTCPConnection -LocalPort 3000`) if the PID is unknown, and always run it in `finally`.
+
+6. **Never add a "leave the server running" mode to the wrapper.** A helper that starts a detached server, prints the PID and exits fights pending libuv handles on Windows (`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`), can crash mid-exit and orphan the listener. The wrapper must be strictly one-shot: start → bounded wait → run → kill, all in one process that then exits hard. For interactive browser work, do one comprehensive script per wrapper run; each run restarts the server in ~2 s.
+7. **Never chain the lifecycle as ad-hoc statements in one tool call**: `start-server; probe; stop-server` is the same trap wearing a disguise — if any step fails or the start helper crashes, the chain skips cleanup and leaves a listener. One call = one wrapper invocation that owns cleanup.
+8. **The orchestrator itself must follow these rules when testing the wrapper or any server flow.** Do not "just quickly" start a server and probe it inline.
+
+Every brief that needs a server must name the exact wrapper command and cap the runs. Verifiers and implementers may not improvise `Start-Process` + polling. After any server-using wave, check the port once with a bounded, non-waiting command (e.g. `Get-NetTCPConnection -LocalPort 3000 -State Listen`) and kill leftovers with `taskkill /PID <pid> /T /F`. If an agent does get stuck anyway: abort, kill leftover processes on the port, confirm nothing is half-written, then relaunch with the wrapper named verbatim.
+
+</process_safety>
 
 <user_handoff>
 
