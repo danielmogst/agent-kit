@@ -19,6 +19,8 @@ One folder. Drop it in, point APM at it, done.
 | `update-graphify` | Keeps the Graphify knowledge graph (`graphify-out/`) in sync with the codebase. |
 | `vision` | When/how to use the Gemini vision tooling (pairs with the `gemini-vision` tool and `vision` subagent). |
 | `browser-automation` | Headless-browser QA loop: console errors, failed requests, DOM assertions, screenshots (`browser.mjs`). |
+| `repo-security-audit` | Online-only pre-clone GitHub review: provenance, install scripts, supply chain, CI, binaries, and agent/prompt-injection risks; never clones or executes. |
+| `code-review` | Fresh, evidence-based review of current changes before commit/push: scope verification, security, correctness, integration, quality; up to four independent reviewers; review-only. |
 | `game-development` | Build → launch → watch the game loop for any engine; error-to-workspace path mapping (`game.mjs`). |
 
 Every skill folder lands at `.agents/skills/<name>/` (whole folder copied, scripts included).
