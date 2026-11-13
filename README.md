@@ -22,8 +22,31 @@ One folder. Drop it in, point APM at it, done.
 | `repo-security-audit` | Online-only pre-clone GitHub review: provenance, install scripts, supply chain, CI, binaries, and agent/prompt-injection risks; never clones or executes. |
 | `code-review` | Fresh, evidence-based review of current changes before commit/push: scope verification, security, correctness, integration, quality; up to four independent reviewers; review-only. |
 | `game-development` | Build → launch → watch the game loop for any engine; error-to-workspace path mapping (`game.mjs`). |
+| `hyperframes` | HTML→video pipeline for launch films, explainers, music videos, charts, maps, title cards, captions and overlays; render contract and work loop. |
+| `hyperframes-cli` | HyperFrames CLI (`npx hyperframes`): scaffold, check frames, edit timelines, preview, render, share, project history. |
+| `hyperframes-registry` | ~450 ready-made HyperFrames blocks/components as editable source: transitions, kinetic type, charts, maps, 3D, camera moves. |
+| `media-use` | Music, SFX, images, icons, voiceover, avatar/generated video, cutouts and grades for HyperFrames; audio mixing. |
+| `brag` | Explicit-only (`/brag`): turns the current project into a short launch video; reads the project code directly, no live URL needed. |
+| `pixy-pixel-art` | Sprites, sheets, tiles, icons, effects and short animations from local Pixy JSON recipes; exports PNG, GIF, APNG or frames. |
+| `pixelfx` | 244 code-based pixel VFX and sprite animations with a draft → render → look → refine loop; exports sprite sheets. |
+| `pixel-game-studio` | Router skill: Pixy for sprites and baked assets, Pixelfx for runtime VFX. |
+| `spritefusion-vfx` | 25 MIT-licensed pixel VFX as TypeScript plus Sprite Fusion MCP tools (sprites, 8 directions, normal maps). |
+| `godot-game-studio` | Autonomous Godot 4 pipeline: game design, economy simulator, theme-first UI, headless tests, screenshot critics, export. |
+| `reverse-engineer-anything` | REA-driven reverse engineering of native, managed, Electron/JS, firmware and browser targets; builds AgentEnv bundles. |
 
 Every skill folder lands at `.agents/skills/<name>/` (whole folder copied, scripts included).
+
+### Skill tooling
+
+Some skills call external tooling that this package does not install:
+
+- `hyperframes`, `media-use`, `brag` — Node.js 22+ and FFmpeg.
+- `pixy-pixel-art`, `pixelfx`, `pixel-game-studio` — local Pixy and Pixelfx checkouts; the skill text references `D:/GitHub/Pixy` and `D:/GitHub/pixelfx`, so adjust those paths for other layouts.
+- `spritefusion-vfx` — the Sprite Fusion MCP server.
+- `reverse-engineer-anything` — REA (`rea` CLI or MCP).
+- `godot-game-studio` — Godot 4 for the build, test and export steps.
+
+`brag` bundles music under CC BY 4.0 (Sascha Ende, ende.app); the package itself stays MIT.
 
 ## Agents, instructions, and payload
 
