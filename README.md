@@ -21,6 +21,7 @@ One folder. Drop it in, point APM at it, done.
 | `browser-automation` | Headless-browser QA loop: console errors, failed requests, DOM assertions, screenshots (`browser.mjs`). |
 | `repo-security-audit` | Online-only pre-clone GitHub review: provenance, install scripts, supply chain, CI, binaries, and agent/prompt-injection risks; never clones or executes. |
 | `code-review` | Fresh, evidence-based review of current changes before commit/push: scope verification, security, correctness, integration, quality; up to four independent reviewers; review-only. |
+| `auto-commit` | Explicit-only (`/auto-commit`): one branch, one commit, one PR in a fixed format — plain-language paragraph, `---`, one bullet per change — with pre-commit gates, secret scanning and branch protection. |
 | `game-development` | Build → launch → watch the game loop for any engine; error-to-workspace path mapping (`game.mjs`). |
 | `hyperframes` | HTML→video pipeline for launch films, explainers, music videos, charts, maps, title cards, captions and overlays; render contract and work loop. |
 | `hyperframes-cli` | HyperFrames CLI (`npx hyperframes`): scaffold, check frames, edit timelines, preview, render, share, project history. |
