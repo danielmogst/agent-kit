@@ -11,32 +11,76 @@
 import { createRequire } from 'node:module'
 import { readdirSync, existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
 
 /**
+ * Where patchright is: it ships only inside the CodeGPT sidecar, and this script
+ * runs from the user's copy in ~/.codegpt/skills with no idea which editor
+ * installed that sidecar. In order:
+ *
+ *   1. CODEGPT_RUNTIME_MODULES, set by the CLI.
+ *   2. ~/.codegpt/runtime.json, written by the sidecar at boot
+ *      (core/skills/runtime-location.ts). This is the one that knows, and it
+ *      covers every host.
+ *   3. Beside this script, for a copy run from inside the extension or a checkout.
+ *   4. The extension folders of VS Code and its forks, newest CodeGPT version
+ *      first, and the JetBrains plugin's sidecar folder.
+ *   5. The current directory.
+ *
+ * Guessing only VS Code's two folders used to fail every run on Cursor,
+ * Windsurf, Insiders, VSCodium, Visual Studio and JetBrains.
+ *
  * Never hardcode the extension version directory — it is rewritten on every
  * update, which is exactly how the CLI shim breaks when something pins it.
  * Glob and take the highest version present.
  */
-function resolveChromium() {
+const byVersion = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+
+const EDITOR_EXTENSION_DIRS = [
+  '.vscode', '.vscode-insiders', '.vscode-oss', '.cursor', '.windsurf', '.trae', '.kiro', '.positron',
+].flatMap((d) => [join(homedir(), d, 'extensions'), join(homedir(), `${d}-server`, 'extensions')])
+
+function candidateRoots() {
   const roots = []
-  for (const base of [
-    join(homedir(), '.vscode-server/extensions'),
-    join(homedir(), '.vscode/extensions'),
-  ]) {
-    if (!existsSync(base)) continue
-    const dirs = readdirSync(base)
-      .filter((d) => d.startsWith('danielsanmedium.dscodegpt-'))
-      .sort((a, b) =>
-        a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }),
-      )
-    const newest = dirs[dirs.length - 1]
-    if (newest) roots.push(join(base, newest, 'standalone') + '/')
+  const add = (dir) => {
+    if (!dir) return
+    const withSlash = dir.endsWith('/') || dir.endsWith('\\') ? dir : dir + '/'
+    if (!roots.includes(withSlash)) roots.push(withSlash)
   }
-  roots.push('/home/mike/src/codegpt/codegpt-nextjs/', process.cwd() + '/')
+
+  add(process.env.CODEGPT_RUNTIME_MODULES)
+
+  const home = process.env.CODEGPT_HOME || join(homedir(), '.codegpt')
+  try {
+    add(JSON.parse(readFileSync(join(home, 'runtime.json'), 'utf8'))?.modulesRoot)
+  } catch {}
+
+  // .../standalone/skills/browser-automation/browser.mjs -> .../standalone/
+  const here = dirname(fileURLToPath(import.meta.url))
+  add(resolve(here, '..', '..'))
+  add(resolve(here, '..', '..', '..'))
+
+  for (const base of EDITOR_EXTENSION_DIRS) {
+    if (!existsSync(base)) continue
+    const newest = readdirSync(base).filter((d) => d.startsWith('danielsanmedium.dscodegpt-')).sort(byVersion).pop()
+    if (newest) add(join(base, newest, 'standalone'))
+  }
+
+  const jetbrains = join(homedir(), '.jetbrains-codegpt')
+  if (existsSync(jetbrains)) {
+    const newest = readdirSync(jetbrains).filter((d) => /^\d+\.\d+\.\d+$/.test(d)).sort(byVersion).pop()
+    if (newest) add(join(jetbrains, newest, 'standalone'))
+  }
+
+  add(process.cwd())
+  return roots
+}
+
+function resolveChromium() {
+  const roots = candidateRoots()
   for (const root of roots) {
     try {
       const mod = createRequire(root)('patchright')
@@ -45,7 +89,9 @@ function resolveChromium() {
     } catch {}
   }
   throw new Error(
-    'Could not resolve patchright. Checked:\n  ' + roots.join('\n  '),
+    'Could not resolve patchright, which ships with the CodeGPT extension. Checked:\n  ' +
+      roots.join('\n  ') +
+      '\nOpening the editor with CodeGPT enabled once records where it is installed (~/.codegpt/runtime.json).',
   )
 }
 
@@ -116,6 +162,78 @@ const timeout = Number(flag('--timeout') ?? 30000)
 
 const { chromium, root } = resolveChromium()
 
+/**
+ * Which browser to drive: the Chromium build patchright pins, else one already
+ * on this machine.
+ *
+ * The pinned build is a ~190 MB download that fails often (October 2026: about
+ * 11% of the skill's users hit "Executable doesn't exist" at least once), is
+ * re-downloaded whenever patchright moves its pin, and has NO download at all for
+ * macOS 11-13, Ubuntu 18.04/20.04 or Debian 11. A Chrome, Edge, Chromium or Brave
+ * the user already has does the job for this skill: it tests the user's own
+ * pages, so the fingerprint work web_fetch needs the pinned build for does not
+ * apply. CODEGPT_BROWSER_PATH names one explicitly.
+ */
+const systemBrowsers = () => {
+  const env = process.env
+  const home = homedir()
+  if (process.platform === 'win32') {
+    const roots = [env.PROGRAMFILES, env['PROGRAMFILES(X86)'], env.LOCALAPPDATA].filter(Boolean)
+    return [
+      ['Google Chrome', 'Google\\Chrome\\Application\\chrome.exe'],
+      ['Microsoft Edge', 'Microsoft\\Edge\\Application\\msedge.exe'],
+      ['Chromium', 'Chromium\\Application\\chrome.exe'],
+      ['Brave', 'BraveSoftware\\Brave-Browser\\Application\\brave.exe'],
+    ].flatMap(([label, rel]) => roots.map((r) => [label, join(r, rel)]))
+  }
+  if (process.platform === 'darwin') {
+    return [
+      ['Google Chrome', 'Google Chrome.app/Contents/MacOS/Google Chrome'],
+      ['Microsoft Edge', 'Microsoft Edge.app/Contents/MacOS/Microsoft Edge'],
+      ['Chromium', 'Chromium.app/Contents/MacOS/Chromium'],
+      ['Brave', 'Brave Browser.app/Contents/MacOS/Brave Browser'],
+    ].flatMap(([label, rel]) => ['/Applications', join(home, 'Applications')].map((d) => [label, join(d, rel)]))
+  }
+  const dirs = [...(env.PATH || '').split(':'), '/usr/bin', '/usr/local/bin', '/snap/bin', '/opt/google/chrome']
+  return [
+    ['Google Chrome', 'google-chrome-stable'],
+    ['Google Chrome', 'google-chrome'],
+    ['Chromium', 'chromium'],
+    ['Chromium', 'chromium-browser'],
+    ['Microsoft Edge', 'microsoft-edge-stable'],
+    ['Microsoft Edge', 'microsoft-edge'],
+    ['Brave', 'brave-browser'],
+  ].flatMap(([label, bin]) => dirs.filter(Boolean).map((d) => [label, join(d, bin)]))
+}
+
+function browserCandidates() {
+  const out = []
+  const add = (label, path) => {
+    if (path && existsSync(path) && !out.some((c) => c.path === path)) out.push({ label, path })
+  }
+  add('CODEGPT_BROWSER_PATH', process.env.CODEGPT_BROWSER_PATH)
+  let pinned = ''
+  try {
+    pinned = chromium.executablePath()
+  } catch {}
+  add('pinned Chromium', pinned)
+  for (const [label, path] of systemBrowsers()) add(label, path)
+  return { candidates: out, pinned }
+}
+
+const { candidates: browsers, pinned: pinnedPath } = browserCandidates()
+if (!browsers.length) {
+  console.error(
+    'No browser to drive. The pinned Chromium is not installed' +
+      (pinnedPath ? ` (expected at ${pinnedPath})` : ' (patchright offers no download for this OS version)') +
+      ', and no Chrome, Edge, Chromium or Brave was found.\n' +
+      `Either install it: "${process.execPath}" "${join(root, 'node_modules', 'patchright', 'cli.js')}" install chromium --no-shell\n` +
+      'or install Google Chrome, or set CODEGPT_BROWSER_PATH to a Chromium-based browser.',
+  )
+  process.exit(1)
+}
+let browserUsed = browsers[0]
+
 /** Ask the OS for a free TCP port by binding :0 and reading it back. */
 const freePort = () =>
   new Promise((res, rej) => {
@@ -156,7 +274,7 @@ async function acquireSession(id) {
     // Stale or first run — spawn a new detached chrome that outlives us.
     const port = await freePort()
     const child = spawn(
-      chromium.executablePath(),
+      browserUsed.path,
       [
         `--remote-debugging-port=${port}`,
         `--user-data-dir=${sessionProfile(id)}`,
@@ -220,11 +338,23 @@ let browser, ctx, page
 if (sessionMode) {
   ;({ browser, page } = await acquireSession(sessionId))
 } else {
-  browser = await chromium.launch({
-    headless: true,
-    channel: 'chromium',
-    args: ['--no-sandbox', '--disable-dev-shm-usage', '--enable-unsafe-swiftshader'],
-  })
+  // First browser that launches: a candidate can exist and still fail (missing
+  // shared libraries, a broken install), and the next one may work.
+  let lastError
+  for (const candidate of browsers) {
+    try {
+      browser = await chromium.launch({
+        headless: true,
+        executablePath: candidate.path,
+        args: ['--no-sandbox', '--disable-dev-shm-usage', '--enable-unsafe-swiftshader'],
+      })
+      browserUsed = candidate
+      break
+    } catch (e) {
+      lastError = e
+    }
+  }
+  if (!browser) throw lastError
   ctx = await browser.newContext({ locale: 'en-US' })
   page = await ctx.newPage()
 }
@@ -482,6 +612,7 @@ console.log(`load       ${Date.now() - t0}ms`)
 console.log(`title      ${JSON.stringify(info.title)}`)
 console.log(`bodyChars  ${info.bodyChars}`)
 console.log(`patchright ${root}`)
+console.log(`browser    ${browserUsed.label}  ${browserUsed.path}`)
 if (info.head) console.log(`text       ${info.head}`)
 if (expr) console.log(`eval       ${JSON.stringify(evalResult)}`)
 if (scriptPath) console.log(`script     ${JSON.stringify(scriptResult, null, 1)}`)
