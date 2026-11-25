@@ -29,9 +29,12 @@ One folder. Drop it in, point APM at it, done.
 | `hyperframes-registry` | ~450 ready-made HyperFrames blocks/components as editable source: transitions, kinetic type, charts, maps, 3D, camera moves. |
 | `media-use` | Music, SFX, images, icons, voiceover, avatar/generated video, cutouts and grades for HyperFrames; audio mixing. |
 | `brag` | Explicit-only (`/brag`): turns the current project into a short launch video; reads the project code directly, no live URL needed. |
+| `comfyui-image-generation` | Local ComfyUI images through the Krea-2 Turbo + `sint-pixel` LoRA workflow: 128px transparent cutouts, batch runs and verification. |
 | `pixy-pixel-art` | Sprites, sheets, tiles, icons, effects and short animations from local Pixy JSON recipes; exports PNG, GIF, APNG or frames. |
 | `pixelfx` | 244 code-based pixel VFX and sprite animations with a draft → render → look → refine loop; exports sprite sheets. |
 | `pixel-game-studio` | Router skill: Pixy for sprites and baked assets, Pixelfx for runtime VFX. |
+| `spritekiln` | Spec-driven pixel sprites and animations: YAML character specs, 8 directions, atlases, Aseprite/Godot export and identical frames across runs. |
+| `spritekiln-prompt` | Turns a character idea into a SpriteKiln prompt: silhouette, asymmetry, palette, build and acceptance criteria. |
 | `spritefusion-vfx` | 25 MIT-licensed pixel VFX as TypeScript plus Sprite Fusion MCP tools (sprites, 8 directions, normal maps). |
 | `godot-game-studio` | Autonomous Godot 4 pipeline: game design, economy simulator, theme-first UI, headless tests, screenshot critics, export. |
 | `reverse-engineer-anything` | REA-driven reverse engineering of native, managed, Electron/JS, firmware and browser targets; builds AgentEnv bundles. |
@@ -45,6 +48,8 @@ Some skills call external tooling that this package does not install:
 - `hyperframes`, `media-use`, `brag` — Node.js 22+ and FFmpeg.
 - `pixy-pixel-art`, `pixelfx`, `pixel-game-studio` — local Pixy and Pixelfx checkouts; the skill text references `D:/GitHub/Pixy` and `D:/GitHub/pixelfx`, so adjust those paths for other layouts.
 - `spritefusion-vfx` — the Sprite Fusion MCP server.
+- `spritekiln`, `spritekiln-prompt` — the SpriteKiln CLI 0.4.0 (`pipx install spritekiln`).
+- `comfyui-image-generation` — local ComfyUI with the Krea-2 Turbo workflow, `sint-pixel-krea2-v1` LoRA and BiRefNet, exposed through the ComfyUI MCP server.
 - `reverse-engineer-anything` — REA (`rea` CLI or MCP).
 - `godot-game-studio` — Godot 4 for the build, test and export steps.
 

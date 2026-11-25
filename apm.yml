@@ -1,6 +1,6 @@
 name: agent-kit
-version: 1.3.0
-description: Portable AI-agent toolkit - 27-skill collection, 25 Autoprompt subagents, Gemini vision setup, and OpenCode integration
+version: 1.4.0
+description: Portable AI-agent toolkit - 30-skill collection, 25 Autoprompt subagents, Gemini vision setup, and OpenCode integration
 author: Daniel
 license: MIT
 keywords: [opencode, skills, agents, autoprompt, design, vision, gemini, hyperframes, pixel-art, godot, reverse-engineering]

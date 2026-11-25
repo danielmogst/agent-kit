@@ -202,7 +202,14 @@ Rules:
 
 ## Notes
 
-- Resolves `patchright` from an installed CodeGPT extension, then a dev
-  checkout, then a global copy — so it normally needs no install of its own. If
-  none is found it says what it looked for.
-- Headless. It never touches the user's real browser profile or cookies.
+- Resolves `patchright` from wherever CodeGPT is installed — the environment,
+  `~/.codegpt/runtime.json`, the VS Code-family extension folders, or the
+  JetBrains plugin — so it normally needs no install of its own. If none is
+  found it says what it looked for.
+- Drives the Chromium build patchright pins when it is installed, otherwise a
+  Chrome, Edge, Chromium or Brave already on the machine; the report's `browser`
+  line says which. Do not download a browser yourself when one of those exists —
+  the fallback covers it. Set `CODEGPT_BROWSER_PATH` to choose one.
+- Headless. It never touches the user's real browser profile or cookies, even
+  when it borrows the installed browser: every run gets its own temporary
+  profile.
